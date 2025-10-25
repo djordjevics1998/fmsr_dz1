@@ -15,11 +15,6 @@
 
 using namespace std;
 
-struct Element {
-	double ro;
-	char name[30];
-} WATER_LIQUID = {1.0f, "Water, Liquid"}, BLOOD_WHOLE = {1.06, "Blood, Whole"}, BONE_CORTICAL = {1.92, "Bone, Cortical"};
-
 int main(int argc, char *argv[]) {
 	mt19937 rng(chrono::steady_clock::now().time_since_epoch().count());
 	uniform_real_distribution<> distR(0, 1);
@@ -28,18 +23,24 @@ int main(int argc, char *argv[]) {
     cout << "Unesite stepen broja istorija (10 ^ X):";
     int stepen;
     cin >> stepen;
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
     long long N = 1;
     int i, k;
     for(i = 0; i < stepen; i++) N *= 10;
 
-    FunctionSpectre energySpec("120kVp 1mm.txt", FunctionSpectreOrigin::ENERGY);
+    FunctionSpectre* energySpec = FunctionSpectre::readFromFile("120kVp 1mm.txt", true, 1);
 
     auto particlePos0 = new Vector3D((double)0, 0, -1000);
-    auto phantom = new Ellipsoid(new Vector3D((double) 0, 0, 0), 300, 300, 60, new FunctionSpectre("Water, Liquid.txt", FunctionSpectreOrigin::MATERIAL, 1.0));
+    // "Water, Liquid.txt"
+    auto phantom = new Ellipsoid(new Vector3D((double) 0, 0, 0), 300, 300, 60, FunctionSpectre::readMultipleFromFile(2, "voda1.txt", false, 1.0), 2);
     auto detector = new DetectorZ(new Vector3D((double)0, 0, 70), 380, 380, 1, 1);
     PhObject* objects[] = {
-        new Ellipsoid(new Vector3D((double) 0, -100, 0), 40, 40, 40, new FunctionSpectre("Bone, Cortical.txt", FunctionSpectreOrigin::MATERIAL, 1.92)),
-        new ConeYN(new Vector3D((double)0, 150, 0), 120, 30, new FunctionSpectre("Blood, Whole.txt", FunctionSpectreOrigin::MATERIAL, 1.06)),
+        // "Bone, Cortical.txt"
+        new Ellipsoid(new Vector3D((double) 0, -100, 0), 40, 40, 40, FunctionSpectre::readMultipleFromFile(2, "kost1.txt", false, 1.92), 2),
+        // "Blood, Whole.txt"
+        new ConeYN(new Vector3D((double)0, 150, 0), 120, 30, FunctionSpectre::readMultipleFromFile(2, "krvjod1.txt", false, 1.06), 2),
     };
     int objectsLen = sizeof(objects) / sizeof(PhObject*);
     // maksimalan broj trajektorija: svako telo u fantomu,
@@ -49,14 +50,16 @@ int main(int argc, char *argv[]) {
     Event* events[maxSectsLen];
     auto maxR = max(phantom->getA(), phantom->getB());
     double thetaGr = atan(maxR / abs(particlePos0->getZ() - phantom->getP()->getZ()));
+
     while(N > 0) {
         //auto theta = thetaGr * distR(rng);
         auto theta = acos(1 - (1 - cos(thetaGr)) * distR(rng));
         auto phi = 2 * M_PI * distR(rng);
 
         //auto particle = new Particle(particlePos0, new Vector3D(sin(theta) * cos(phi),  sin(theta) * sin(phi), cos(theta)), e);
-        auto particle = new Particle(particlePos0, new Vector3D(tan(theta) * cos(phi),  tan(theta) * sin(phi), 1 - tan(theta)), energySpec.selectValue(distR(rng)));
-
+        auto particle = new Particle(particlePos0, new Vector3D(sin(theta) * cos(phi),  sin(theta) * sin(phi), cos(theta)), energySpec->selectValue(distR(rng)));
+        //cout << theta << " ";
+        //cout << particle->getV()->getZ() << endl;
         auto phin = phantom->intersection(particle);
 
         if(phin.getP1() != NULL || phin.getP2() != NULL) {
@@ -131,18 +134,39 @@ int main(int argc, char *argv[]) {
                 }
 
                 double domet = -log(distR(rng));
+                bool isScattered = false;
                 for(i = 0; i < sectsLen; i++) {
-                    double dt = events[i]->getObject()->getAbsU()->selectValue(events[i]->getParticle()->getE())
-                     * Vector3D::distance(events[i]->getIntersection()->getP1(), events[i]->getIntersection()->getP2());
-                    if(domet <= dt) {
+                    auto fsu = events[i]->getObject()->getFsU();
+                    auto e = events[i]->getParticle()->getE();
+                    double mult = Vector3D::distance(events[i]->getIntersection()->getP1(), events[i]->getIntersection()->getP2());
+                    double dtabs = fsu[1]->selectValue(e) * mult;
+                    double dtsca = fsu[0]->selectValue(e) * mult;
+                    if(domet <= dtabs) {
                         shouldBreak = true;
+                        events[i]->getObject()->setDose(events[i]->getObject()->getDose() + events[i]->getParticle()->getE());
                         break;
                     }
-                    domet -= dt;
+                    domet -= dtabs;
+                    if(domet <= dtsca) {
+                        shouldBreak = false;
+                        isScattered = true;
+                        if(events[i]->getParticle()->getV()->len() != 0) {
+                            double k = (domet / fsu[0]->selectValue(e)) / events[i]->getParticle()->getV()->len();
+                            events[i]->getParticle()->getP()->set(events[i]->getParticle()->getP()->getX() + events[i]->getParticle()->getV()->getX() * k,
+                                events[i]->getParticle()->getP()->getY() + events[i]->getParticle()->getV()->getY() * k,
+                                events[i]->getParticle()->getP()->getZ() + events[i]->getParticle()->getV()->getZ() * k
+                            );
+                        }
+                        double olde = events[i]->getParticle()->getE();
+                        events[i]->getParticle()->scatter(rng);
+                        events[i]->getObject()->setDose(events[i]->getObject()->getDose() + olde - events[i]->getParticle()->getE());
+                        break;
+                    }
+                    domet -= dtsca;
                 }
                 //shouldBreak = sectsLen < 2;
 
-                if(!shouldBreak) {
+                if(!shouldBreak && !isScattered) {
                     auto intersection = detector->intersection(particle);
                     if(intersection.getP1() != NULL) {
                         auto pos = intersection.getP1();
@@ -152,9 +176,9 @@ int main(int argc, char *argv[]) {
                 }
 
                 for(i = 0; i < sectsLen; i++) delete events[i];
-                shouldBreak = true;
             }
         } else {
+            cout << "PROMASIO" << endl;
         }
 
         delete particle;
@@ -181,6 +205,11 @@ int main(int argc, char *argv[]) {
     for(i = 0; i < objectsLen; i++) {
         delete objects[i];
     }
+    delete energySpec;
+
+    //µ
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    std::cout << endl << "Time difference = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
     return 0;
 }

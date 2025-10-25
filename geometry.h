@@ -2,6 +2,7 @@
 #define H_GEOMETRY
 
 #include <string>
+#include <random>
 #include "materials.h"
 
 class Vector3D {
@@ -46,6 +47,7 @@ class Particle {
 		Vector3D* getV();
 		double getE();
 		void setE(double e);
+		void scatter(std::mt19937 rng);
 		~Particle();
 };
 
@@ -69,12 +71,13 @@ class Intersection {
 
 class PhObject {
 	protected:
-        FunctionSpectre *absU;
+        FunctionSpectre **fsu;
+        int fsuLen;
 		double dose;
 	public:
-		PhObject(FunctionSpectre *absU);
+		PhObject(FunctionSpectre **fsu, int fsuLen);
 		virtual Intersection intersection(Particle* particle) = 0;
-		FunctionSpectre* getAbsU();
+		FunctionSpectre** getFsU();
 		double getDose();
 		void setDose(double dose);
 		virtual std::string toString() = 0;
@@ -86,11 +89,11 @@ class Ellipsoid : public PhObject {
 		Vector3D* p;
 		double a, b, c;
 	public:
-		Ellipsoid(Vector3D* p, double a, double b, double c, FunctionSpectre *absU);
+		Ellipsoid(Vector3D* p, double a, double b, double c, FunctionSpectre **absU, int fsuLen);
 		/**
 		 * Sphere
 		 */
-		Ellipsoid(Vector3D* p, double r, FunctionSpectre *absU);
+		Ellipsoid(Vector3D* p, double r, FunctionSpectre **absU, int fsuLen);
 		Vector3D* getP();
 		double getA();
 		double getB();
@@ -108,7 +111,7 @@ class ConeYN : public PhObject {
 		Vector3D *p;
 		double h, r;
 	public:
-		ConeYN(Vector3D *p, double h, double r, FunctionSpectre *absU);
+		ConeYN(Vector3D *p, double h, double r, FunctionSpectre **absU, int fsuLen);
 		Vector3D* getP();
 		double getH();
 		double getR();

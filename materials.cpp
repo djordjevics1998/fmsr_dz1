@@ -20,66 +20,23 @@ double FunctionElement::getFx() {
     return this->fx;
 }
 
+void FunctionElement::multiplyXBy(int k) {
+    x *= k;
+}
+
+void FunctionElement::multiplyFxBy(int k) {
+    fx *= k;
+}
+
 FunctionElement::~FunctionElement() {
 }
 
-FunctionSpectre::FunctionSpectre() {
-    spectreLen = 0;
+FunctionSpectre::FunctionSpectre() : FunctionSpectre(0) {
+}
+
+FunctionSpectre::FunctionSpectre(int spectreLen) {
+    this->spectreLen = spectreLen;
     spectre = new FunctionElement[spectreLen];
-}
-
-FunctionSpectre::FunctionSpectre(std::string filePath, FunctionSpectreOrigin origin, double k) {
-    FILE* ptr = fopen(filePath.c_str(), "r");
-    spectreLen = 0;
-	if(ptr == NULL) {
-        spectre = new FunctionElement[spectreLen];
-        cout << "ERROR: Cannot open: " << filePath << endl;
-	}
-	else {
-        double temp, s;
-        switch(origin) {
-            case FunctionSpectreOrigin::ENERGY: {
-                s = 0;
-                while (fscanf(ptr, "%lf %lf", &temp, &temp) != EOF) {
-                    spectreLen++;
-                    s += temp;
-                }
-                break;
-            }
-            case FunctionSpectreOrigin::MATERIAL: {
-                while (fscanf(ptr, "%lf %lf %lf", &temp, &temp, &temp) != EOF) {
-                    spectreLen++;
-                }
-                break;
-            }
-        }
-
-        fseek(ptr, 0, SEEK_SET);
-        spectre = new FunctionElement[spectreLen];
-        int i = 0;
-        double tmp1, tmp2;
-        switch(origin) {
-            case FunctionSpectreOrigin::ENERGY: {
-                double s = 0;
-                while (fscanf(ptr, "%lf %lf", &tmp1, &tmp2) != EOF) {
-                    tmp2 /= s;
-                    if(i == 0) spectre[i++] = FunctionElement(tmp2, tmp1);
-                    else spectre[i++] = FunctionElement(tmp2 + spectre[i - 1].getX(), tmp1);
-                }
-                break;
-            }
-            case FunctionSpectreOrigin::MATERIAL: {
-                while (fscanf(ptr, "%lf %lf %lf", &tmp1, &tmp2, &temp) != EOF) {
-                    spectre[i++] = FunctionElement(tmp1, tmp2 * k);
-                }
-                break;
-            }
-        }
-	}
-	fclose(ptr);
-}
-
-FunctionSpectre::FunctionSpectre(std::string filePath, FunctionSpectreOrigin origin) : FunctionSpectre(filePath, origin, 1) {
 }
 
 double FunctionSpectre::selectValue(double x) {
@@ -94,6 +51,75 @@ double FunctionSpectre::selectValue(double x) {
         cout << "ERROR: empty spectre" << endl;
     }
     return fx;
+}
+
+FunctionSpectre** FunctionSpectre::readMultipleFromFile(int len, std::string filePath, bool invertAndNormalize, double k) {
+    FILE* ptr = fopen(filePath.c_str(), "r");
+    int spectreLen = 0;
+    FunctionSpectre** spects = nullptr;
+	if(ptr == NULL) {
+        cout << "ERROR: Cannot open: " << filePath << endl;
+	}
+	else {
+        double temp;
+        while(fscanf(ptr, "%lf", &temp) != EOF) {
+            for(int i = 0; i < len; i++) fscanf(ptr, "%lf", &temp);
+            spectreLen++;
+        }
+        spects = new FunctionSpectre*[len];
+        for(int i = 0; i < len; i++) {
+            spects[i] = new FunctionSpectre(spectreLen);
+        }
+
+        fseek(ptr, 0, SEEK_SET);
+        for(int i = 0; i < spectreLen; i++) {
+            double x, fx;
+            fscanf(ptr, "%lf", &x);
+            for(int j = 0; j < len; j++) {
+                fscanf(ptr, "%lf", &fx);
+                spects[j]->spectre[i] = FunctionElement(x, fx);
+            }
+        }
+
+        if(invertAndNormalize) {
+            for(int i = 0; i < len; i++) {
+                double s = 0;
+                for(int j = 0; j < spectreLen; j++) {
+                    s += spects[i]->spectre[j].getFx();
+                }
+                if(s != 0) {
+                    for(int j = 0; j < spectreLen; j++) {
+                        if(j == 0) {
+                            spects[i]->spectre[j] = FunctionElement(spects[i]->spectre[j].getFx() / s, spects[i]->spectre[j].getX());
+                        } else {
+                            spects[i]->spectre[j] = FunctionElement(spects[i]->spectre[j].getFx() / s + spects[i]->spectre[j - 1].getX(), spects[i]->spectre[j].getX());
+                        }
+
+                    }
+                }
+            }
+        } else {
+            for(int i = 0; i < len; i++) {
+                for(int j = 0; j < spectreLen; j++) {
+                    spects[i]->spectre[j] = FunctionElement(1000 * spects[i]->spectre[j].getX(), spects[i]->spectre[j].getFx() * k);
+                }
+            }
+        }
+	}
+	fclose(ptr);
+	return spects;
+}
+
+FunctionSpectre* FunctionSpectre::readFromFile(std::string filePath, bool invertAndNormalize, double k) {
+    auto spects = FunctionSpectre::readMultipleFromFile(1, filePath, invertAndNormalize, k);
+    if(spects != nullptr) {
+        auto spectre = spects[0];
+        spects[0] = nullptr;
+        delete[] spects;
+        return spectre;
+    }
+
+    return nullptr;
 }
 
 FunctionSpectre::~FunctionSpectre() {

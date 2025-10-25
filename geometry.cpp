@@ -136,6 +136,59 @@ void Particle::setE(double e) {
     this->e = e;
 }
 
+void Particle::scatter(mt19937 rng) {
+    double ME_KEV = 511.0; // keV, energija mirovanja elektrona, pomocna konstanta
+
+    /*double f_max = 2.0;
+    uniform_real_distribution<> distMu(-1.0, 1.0);
+    uniform_real_distribution<> distPhi(0, 2.0 * M_PI);
+    uniform_real_distribution<> distF(0, f_max);
+
+    while(true) {
+        double mu = distMu(rng);
+        double phi = distPhi(rng);
+
+        double e_r = 1.0 / (1.0 + (this->e / ME_KEV) * (1.0 - mu));
+        double sin2 = 1.0 - mu*mu; // sin^2;
+        double f = (e_r * e_r) * (e_r + 1.0 / e_r - sin2); // klein_nishin_weight
+
+        if(distF(rng) <= f) {
+            this->e = this->e / (1.0 + (this->e / ME_KEV) * (1.0 - mu));
+            break;
+        }
+    }*/
+
+    double tmin = 1.0 /(1.0 + 2.0 * (this->e / ME_KEV));
+    double gmax = 1.0/tmin + tmin;
+
+    uniform_real_distribution<> distNorm(0, 1.0);
+    uniform_real_distribution<> distPhi(0, 2.0 * M_PI);
+    double phi = distPhi(rng);
+    while(true) {
+        double eps1 = distNorm(rng);
+        double eps2 = distNorm(rng);
+        double t = tmin + eps1 * (1.0 - tmin);
+        double rt = (1.0 / t + t - 1.0 + (1.0 - (1.0 - t) / (t * this->e / ME_KEV)) * (
+                    1.0 - (1.0 - t) / (t * this->e / ME_KEV))) / gmax;
+
+        if (eps2 <= rt) { // prihvata se
+            double mu = 1.0 - (1.0 - t)/(t * this->e / ME_KEV);
+            this->e = t * this->e;
+
+            double dt = acos(mu);
+
+            double sin_theta = mu > 1 ? 0 : sqrt(1 - mu * mu);
+            double ot = acos(this->getV()->getZ());
+            double ophi = atan(this->getV()->getY() / this->getV()->getX());
+            this->getV()->set(sin(dt + ot) * cos(phi + ophi),
+                sin(dt + ot) * sin(phi + ophi),
+                cos(dt + ot));
+
+            break;
+        }
+    }
+}
+
 Particle::~Particle() {
     delete p;
     delete v;
@@ -223,13 +276,14 @@ Intersection::~Intersection() {
     delete p2;
 }
 
-PhObject::PhObject(FunctionSpectre *absU) {
-    this->absU = absU;
+PhObject::PhObject(FunctionSpectre **fsu, int fsuLen) {
+    this->fsu = fsu;
+    this->fsuLen = fsuLen;
     dose = 0;
 }
 
-FunctionSpectre* PhObject::getAbsU() {
-    return absU;
+FunctionSpectre** PhObject::getFsU() {
+    return fsu;
 }
 
 double PhObject::getDose() {
@@ -241,17 +295,20 @@ void PhObject::setDose(double dose) {
 }
 
 PhObject::~PhObject() {
-    delete absU;
+    for(int i = 0; i < fsuLen; i++) {
+        delete fsu[i];
+    }
+    delete[] fsu;
 }
 
-Ellipsoid::Ellipsoid(Vector3D* p, double a, double b, double c, FunctionSpectre *absU) : PhObject(absU) {
+Ellipsoid::Ellipsoid(Vector3D* p, double a, double b, double c, FunctionSpectre **fsu, int fsuLen) : PhObject(fsu, fsuLen) {
     this->p = new Vector3D(p);
     this->a = a;
     this->b = b;
     this->c = c;
 }
 
-Ellipsoid::Ellipsoid(Vector3D* p, double r, FunctionSpectre *absU) : Ellipsoid(p, r, r, r, absU) {
+Ellipsoid::Ellipsoid(Vector3D* p, double r, FunctionSpectre **fsu, int fsuLen) : Ellipsoid(p, r, r, r, fsu, fsuLen) {
 }
 
 Vector3D* Ellipsoid::getP() {
@@ -303,7 +360,7 @@ Ellipsoid::~Ellipsoid() {
     delete p;
 }
 
-ConeYN::ConeYN(Vector3D *p, double h, double r, FunctionSpectre *absU) : PhObject(absU) {
+ConeYN::ConeYN(Vector3D *p, double h, double r, FunctionSpectre **fsu, int fsuLen) : PhObject(fsu, fsuLen) {
     this->p = new Vector3D(p);
     this->h = h;
     this->r = r;
@@ -407,7 +464,7 @@ ConeYN::~ConeYN() {
     delete p;
 }
 
-DetectorZ::DetectorZ(Vector3D *p, int xn, int yn, double cellW, double cellH) : PhObject(new FunctionSpectre()) {
+DetectorZ::DetectorZ(Vector3D *p, int xn, int yn, double cellW, double cellH) : PhObject(new FunctionSpectre*[0], 0) {
     this->p = new Vector3D(p);
     this->xn = xn;
     this->yn = yn;
@@ -462,21 +519,35 @@ void DetectorZ::addCounter(Vector3D* pos) {
     double h = yn * cellH;
 
     if(SQR(fx - ex) <= SQR(w / 2) && SQR(fy - ey) <= SQR(h / 2)) {
-        int j = round((fx - ex + w / 2) / cellW) - 1;
+        int j = round((fx - ex + w / 2 + cellW / 2) / cellW) - 1;
         //if(j < 0) cout << j;
         //if(j < 0) {
         //    cout << fx << ", " << fy << endl;
         //}
-        if(j < 0) j = 0;
-        if(j >= xn) j = xn - 1;
+        if(j < 0) {
+            cout << j << endl;
+            j = 0;
+        }
+        if(j >= xn) {
+            cout << j << endl;
+            j = xn - 1;
+        }
 
-        int i = round((fy - ey + h / 2) / cellH) - 1;
+        int i = round((fy - ey + h / 2 + cellH / 2) / cellH) - 1;
         //if(i < 0) cout << i;
         //if(i < 0) {
         //    cout << fx << ", " << fy << endl;
         //}
-        if(i < 0) i = 0;
-        if(i >= yn) i = yn - 1;
+        if(i < 0) {
+            cout << i << endl;
+            i = 0;
+        }
+        if(i >= yn) {
+            cout << i << endl;
+            i = yn - 1;
+        }
+
+        //cout << i << " " << j << endl;
 
         this->cellCounts[i][j]++;
     }
@@ -502,6 +573,7 @@ Intersection DetectorZ::intersection(Particle* particle) {
 
     if(vz != 0) {
         double k = (ez - pz) / vz;
+        //cout << k << endl;
 
         if(k > 0) {
             double fx = px + k * vx;
@@ -512,6 +584,8 @@ Intersection DetectorZ::intersection(Particle* particle) {
                 //cout << fx << ", " << fy << ", " << ez << endl;
                 intersection.setP1(newVec);
                 delete newVec;
+            } else {
+                //cout << fx << " " << fy << endl;
             }
         }
     }

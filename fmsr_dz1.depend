@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1759670241 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/main.cpp
+1761350511 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/main.cpp
 	"materials.h"
 	"geometry.h"
 	<stdio.h>
@@ -12,11 +12,12 @@
 	<algorithm>
 	<iostream>
 
-1759668061 /mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/geometry.h
+1761136875 /mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/geometry.h
 	<string>
+	<random>
 	"materials.h"
 
-1759668098 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/geometry.cpp
+1761351286 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/geometry.cpp
 	"geometry.h"
 	<math.h>
 	<string>
@@ -27,10 +28,10 @@
 	<set>
 	<iostream>
 
-1759667345 /mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/materials.h
+1760962471 /mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/materials.h
 	<string>
 
-1759667375 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/materials.cpp
+1761339118 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/materials.cpp
 	"materials.h"
 	<iostream>
 
