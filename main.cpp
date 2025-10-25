@@ -65,6 +65,7 @@ int main(int argc, char *argv[]) {
         if(phin.getP1() != NULL || phin.getP2() != NULL) {
             N--;
 
+            bool isScattered = false;
             bool shouldBreak = false;
             // petlja kretanja fotona
             while(particle->getE() >= limitE && !shouldBreak) {
@@ -72,6 +73,9 @@ int main(int argc, char *argv[]) {
 
                 // odredjivanje u okviru kojeg je objekta foton trenutno
                 PhObject* insideObj = NULL;
+                /*if(isScattered) {
+                    cout << particle->getV()->getZ() << endl;
+                }*/
 
                 int sectsLen = 0;
                 for(i = 0; i < objectsLen; i++) {
@@ -134,14 +138,44 @@ int main(int argc, char *argv[]) {
                 }
 
                 double domet = -log(distR(rng));
-                bool isScattered = false;
+                isScattered = false;
                 for(i = 0; i < sectsLen; i++) {
                     auto fsu = events[i]->getObject()->getFsU();
                     auto e = events[i]->getParticle()->getE();
                     double mult = Vector3D::distance(events[i]->getIntersection()->getP1(), events[i]->getIntersection()->getP2());
-                    double dtabs = fsu[1]->selectValue(e) * mult;
-                    double dtsca = fsu[0]->selectValue(e) * mult;
-                    if(domet <= dtabs) {
+                    //double dtabs = fsu[1]->selectValue(e) * mult;
+                    //double dtsca = fsu[0]->selectValue(e) * mult;
+
+                    double uabs = fsu[1]->selectValue(e);
+                    double uras = fsu[0]->selectValue(e);
+                    double duk = (uabs + uras) * mult;
+                    if(domet <= duk) {
+                        if(distR(rng) <= uabs / (uabs + uras)) {
+                            // apsorpcija
+                            shouldBreak = true;
+                            events[i]->getObject()->setDose(events[i]->getObject()->getDose() + events[i]->getParticle()->getE());
+                        } else {
+                            shouldBreak = false;
+                            isScattered = true;
+                            if(true) {//events[i]->getParticle()->getV()->len() != 0) {
+                                double k = (domet / (uabs + uras)); // / events[i]->getParticle()->getV()->len();
+                                //cout << k << " ";
+                                events[i]->getParticle()->getP()->set(events[i]->getCloserIntersection());
+                                events[i]->getParticle()->getP()->set(events[i]->getParticle()->getP()->getX() + events[i]->getParticle()->getV()->getX() * k,
+                                    events[i]->getParticle()->getP()->getY() + events[i]->getParticle()->getV()->getY() * k,
+                                    events[i]->getParticle()->getP()->getZ() + events[i]->getParticle()->getV()->getZ() * k
+                                );
+                                //cout << events[i]->getParticle()->getP()->getX() << " " << events[i]->getParticle()->getP()->getY() << " " << events[i]->getParticle()->getP()->getZ() << endl;
+                            }
+                            double olde = events[i]->getParticle()->getE();
+                            events[i]->getParticle()->scatter(rng);
+                            events[i]->getObject()->setDose(events[i]->getObject()->getDose() + olde - events[i]->getParticle()->getE());
+                        }
+                        break;
+                    }
+                    domet -= duk;
+
+                    /*if(domet <= dtabs) {
                         shouldBreak = true;
                         events[i]->getObject()->setDose(events[i]->getObject()->getDose() + events[i]->getParticle()->getE());
                         break;
@@ -162,7 +196,7 @@ int main(int argc, char *argv[]) {
                         events[i]->getObject()->setDose(events[i]->getObject()->getDose() + olde - events[i]->getParticle()->getE());
                         break;
                     }
-                    domet -= dtsca;
+                    domet -= dtsca;*/
                 }
                 //shouldBreak = sectsLen < 2;
 
