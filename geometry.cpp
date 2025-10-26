@@ -179,11 +179,14 @@ void Particle::scatter(mt19937 rng) {
 
             //double sin_theta = mu > 1 ? 0 : sqrt(1 - mu * mu);
             double ot = acos(this->getV()->getZ());
-            double ophi = atan(this->getV()->getY() / this->getV()->getX());
-            if(this->getV()->getY() < 0 && this->getV()->getX() < 0) ophi += M_PI;
+            double ophi = atan2(this->getV()->getY(), this->getV()->getX());
+            //if(this->getV()->getY() < 0 && this->getV()->getX() < 0) ophi += M_PI;
+
+            //cout << 1 << " " << this->getV()->getX() << " " << this->getV()->getY() << " " << this->getV()->getZ() << endl;
             this->getV()->set(sin(dt + ot) * cos(phi + ophi),
                 sin(dt + ot) * sin(phi + ophi),
                 cos(dt + ot));
+            //cout << 2 << " " << this->getV()->getX() << " " << this->getV()->getY() << " " << this->getV()->getZ() << endl;
 
             break;
         }

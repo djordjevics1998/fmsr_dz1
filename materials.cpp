@@ -45,8 +45,8 @@ double FunctionSpectre::selectValue(double x) {
         int i = 0;
         while(i < spectreLen && spectre[i].getX() < x) i++;
         if(i >= spectreLen) fx = spectre[spectreLen - 1].getFx();
-        else if(i == 0 || spectre[i].getX() == x) fx = spectre[i].getFx();
-        else fx = spectre[i - 1].getFx() + ((spectre[i].getFx() - spectre[i - 1].getFx()) / (spectre[i].getX() - spectre[i - 1].getX())) * x;
+        else if(i == 0 || spectre[i].getX() == x || spectre[i].getX() - spectre[i - 1].getX() == 0) fx = spectre[i].getFx();
+        else fx = spectre[i - 1].getFx() + ((spectre[i].getFx() - spectre[i - 1].getFx()) / (spectre[i].getX() - spectre[i - 1].getX())) * (x - spectre[i - 1].getX());
     } else {
         cout << "ERROR: empty spectre" << endl;
     }

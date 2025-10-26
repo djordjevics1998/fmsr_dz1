@@ -131,6 +131,7 @@ int main(int argc, char *argv[]) {
                     events[sectsLen++] = new Event(particle, phantom, new Intersection(events[origSectsLen - 1]->getFartherIntersection(), phantomEvent->getFartherIntersection()));
                     delete phantomEvent;
                     sort(events, events + sectsLen, Event::compare);
+                    //if(sectsLen > 3) cout << origSectsLen << " " << sectsLen << endl;
                 } else if(phantomIntersection.getP1() != NULL && phantomIntersection.getP2() != NULL) {
                     auto phantomEvent = new Event(particle, phantom, new Intersection(phantomIntersection.getP1(), phantomIntersection.getP2()));
                     events[sectsLen++] = new Event(particle, phantom, new Intersection(phantomEvent->getCloserIntersection(), phantomEvent->getFartherIntersection()));
@@ -142,7 +143,8 @@ int main(int argc, char *argv[]) {
                 for(i = 0; i < sectsLen; i++) {
                     auto fsu = events[i]->getObject()->getFsU();
                     auto e = events[i]->getParticle()->getE();
-                    double mult = Vector3D::distance(events[i]->getIntersection()->getP1(), events[i]->getIntersection()->getP2());
+                    // delimo sa 10 da bi dobili cm
+                    double mult = Vector3D::distance(events[i]->getIntersection()->getP1(), events[i]->getIntersection()->getP2()) / 10;
                     //double dtabs = fsu[1]->selectValue(e) * mult;
                     //double dtsca = fsu[0]->selectValue(e) * mult;
 
@@ -158,7 +160,8 @@ int main(int argc, char *argv[]) {
                             shouldBreak = false;
                             isScattered = true;
                             if(true) {//events[i]->getParticle()->getV()->len() != 0) {
-                                double k = (domet / (uabs + uras)); // / events[i]->getParticle()->getV()->len();
+                                // mnozimo sa 10 jer smo malopre delili sa 10
+                                double k = 10 * (domet / (uabs + uras)); // / events[i]->getParticle()->getV()->len();
                                 //cout << k << " ";
                                 events[i]->getParticle()->getP()->set(events[i]->getCloserIntersection());
                                 events[i]->getParticle()->getP()->set(events[i]->getParticle()->getP()->getX() + events[i]->getParticle()->getV()->getX() * k,
@@ -170,6 +173,10 @@ int main(int argc, char *argv[]) {
                             double olde = events[i]->getParticle()->getE();
                             events[i]->getParticle()->scatter(rng);
                             events[i]->getObject()->setDose(events[i]->getObject()->getDose() + olde - events[i]->getParticle()->getE());
+
+                            // bice apsorbovano
+                            if(particle->getE() < limitE)
+                                events[i]->getObject()->setDose(events[i]->getObject()->getDose() + particle->getE());
                         }
                         break;
                     }
@@ -227,10 +234,15 @@ int main(int argc, char *argv[]) {
 		}
 
     auto ptr = fopen("cpp_slika.txt", "w");
+    long long uhv = 0;
 	for(i = 0; i < detector->getYN(); i++) {
-		for(int k = 0; k < detector->getXN(); k++) fprintf(ptr, "%d ", (int) (4095 * (detector->getCellCounts()[i][k] - mind) / (maxd - mind)));
+		for(int k = 0; k < detector->getXN(); k++) {
+            uhv += detector->getCellCounts()[i][k];
+            fprintf(ptr, "%d ", (int) (4095 * (detector->getCellCounts()[i][k] - mind) / (maxd - mind)));
+		}
 		fprintf(ptr, "\n");
 	}
+	cout << "Broj uhvacenih fotona: " << uhv << endl;
 	fclose(ptr);
 	printf("Simulacija je zavrsena. Slika je sacuvana kao cpp_slika.txt");
 
