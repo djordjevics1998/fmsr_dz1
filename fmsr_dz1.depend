@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1761510317 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/main.cpp
+1762637763 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/main.cpp
 	"materials.h"
 	"geometry.h"
 	<stdio.h>
@@ -28,10 +28,10 @@
 	<set>
 	<iostream>
 
-1760962471 /mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/materials.h
+1762612553 /mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/materials.h
 	<string>
 
-1761507531 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/materials.cpp
+1762612602 source:/mnt/data/kamileon_pdata/desktop/Literatura/fmsr/codeblocks/fmsr_dz1/materials.cpp
 	"materials.h"
 	<iostream>
 

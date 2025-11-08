@@ -11,8 +11,8 @@ class FunctionElement {
         FunctionElement(double x, double fx);
         double getX();
         double getFx();
-        void multiplyXBy(int k);
-        void multiplyFxBy(int k);
+        void multiplyXBy(double k);
+        void multiplyFxBy(double k);
         ~FunctionElement();
 };
 
@@ -31,6 +31,8 @@ class FunctionSpectre {
         FunctionSpectre();
         FunctionSpectre(int spectreLen);
         double selectValue(double x);
+        int getSpectreLength();
+        FunctionElement getElementAt(int i);
         /**
          * len - broj kolona u datoteci, ne ukljucujuci prvu
          * filePath - putanja do datoteke

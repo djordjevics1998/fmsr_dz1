@@ -43,6 +43,14 @@ int main(int argc, char *argv[]) {
         new ConeYN(new Vector3D((double)0, 150, 0), 120, 30, FunctionSpectre::readMultipleFromFile(2, "krvjod1.txt", false, 1.06), 2),
     };
     int objectsLen = sizeof(objects) / sizeof(PhObject*);
+
+    auto kLinije = FunctionSpectre::readMultipleFromFile(1, "JodKlinije.txt", false, 1000);
+    double sumProb = 0;
+    for(i = 0; i < kLinije[0]->getSpectreLength(); i++) {
+        kLinije[0]->getElementAt(i).multiplyXBy(1 / 1000.0);
+        sumProb += kLinije[0]->getElementAt(i).getX();
+    }
+
     // maksimalan broj trajektorija: svako telo u fantomu,
     // izmedju svaka dva tela, pre prvog tela u fantomu i
     // posle poslednjeg tela u fantomu
@@ -65,8 +73,9 @@ int main(int argc, char *argv[]) {
         if(phin.getP1() != NULL || phin.getP2() != NULL) {
             N--;
 
-            bool isScattered = false;
+            bool shouldContinue = false;
             bool shouldBreak = false;
+            bool isKLinija = false;
             // petlja kretanja fotona
             while(particle->getE() >= limitE && !shouldBreak) {
                 shouldBreak = false;
@@ -139,7 +148,7 @@ int main(int argc, char *argv[]) {
                 }
 
                 double domet = -log(distR(rng));
-                isScattered = false;
+                shouldContinue = false;
                 for(i = 0; i < sectsLen; i++) {
                     auto fsu = events[i]->getObject()->getFsU();
                     auto e = events[i]->getParticle()->getE();
@@ -155,10 +164,39 @@ int main(int argc, char *argv[]) {
                         if(distR(rng) <= uabs / (uabs + uras)) {
                             // apsorpcija
                             shouldBreak = true;
-                            events[i]->getObject()->setDose(events[i]->getObject()->getDose() + events[i]->getParticle()->getE());
+
+                            // objects[1] je sa k jodom
+                            if(!shouldContinue && !isKLinija && events[i]->getObject() == objects[1] && distR(rng) <= 0.33) {
+                                auto particle = events[i]->getParticle();
+                                particle->getV()->set(distR(rng), distR(rng), distR(rng));
+                                if(particle->getV()->len() != 0) particle->getV()->multiply(1 / particle->getV()->len());
+
+                                auto oldE = particle->getE();
+                                auto prob = distR(rng) * sumProb;
+                                double cumProb = 0;
+                                int ib = 0;
+                                while(ib < kLinije[0]->getSpectreLength() && prob > cumProb + kLinije[0]->getElementAt(ib).getX()) {
+                                    cumProb += kLinije[0]->getElementAt(ib).getX();
+                                    ib++;
+                                }
+                                if(ib >= kLinije[0]->getSpectreLength()) {
+                                    ib = kLinije[0]->getSpectreLength() - 1;
+                                }
+
+                                if(kLinije[0]->getElementAt(ib).getFx() > 0 && oldE > kLinije[0]->getElementAt(ib).getFx()) {
+                                    shouldContinue = true;
+                                    isKLinija = true;
+                                    shouldBreak = false;
+
+                                    particle->setE(kLinije[0]->getElementAt(ib).getFx());
+                                    events[i]->getObject()->setDose(events[i]->getObject()->getDose() + (oldE - events[i]->getParticle()->getE()));
+                                }
+                            }
+
+                            if(!shouldContinue) events[i]->getObject()->setDose(events[i]->getObject()->getDose() + events[i]->getParticle()->getE());
                         } else {
                             shouldBreak = false;
-                            isScattered = true;
+                            shouldContinue = true;
                             if(true) {//events[i]->getParticle()->getV()->len() != 0) {
                                 // mnozimo sa 10 jer smo malopre delili sa 10
                                 double k = 10 * (domet / (uabs + uras)); // / events[i]->getParticle()->getV()->len();
@@ -207,7 +245,7 @@ int main(int argc, char *argv[]) {
                 }
                 //shouldBreak = sectsLen < 2;
 
-                if(!shouldBreak && !isScattered) {
+                if(!shouldBreak && !shouldContinue) {
                     auto intersection = detector->intersection(particle);
                     if(intersection.getP1() != NULL) {
                         auto pos = intersection.getP1();
@@ -252,6 +290,8 @@ int main(int argc, char *argv[]) {
         delete objects[i];
     }
     delete energySpec;
+    delete kLinije[0];
+    delete kLinije;
 
     //µ
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();

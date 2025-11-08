@@ -20,11 +20,11 @@ double FunctionElement::getFx() {
     return this->fx;
 }
 
-void FunctionElement::multiplyXBy(int k) {
+void FunctionElement::multiplyXBy(double k) {
     x *= k;
 }
 
-void FunctionElement::multiplyFxBy(int k) {
+void FunctionElement::multiplyFxBy(double k) {
     fx *= k;
 }
 
@@ -51,6 +51,14 @@ double FunctionSpectre::selectValue(double x) {
         cout << "ERROR: empty spectre" << endl;
     }
     return fx;
+}
+
+int FunctionSpectre::getSpectreLength() {
+    return this->spectreLen;
+}
+
+FunctionElement FunctionSpectre::getElementAt(int i) {
+    return this->spectre[i];
 }
 
 FunctionSpectre** FunctionSpectre::readMultipleFromFile(int len, std::string filePath, bool invertAndNormalize, double k) {
